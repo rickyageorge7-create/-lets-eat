@@ -1,5 +1,5 @@
 -- Lets Eat shared menu, delivery zones, administrator access, and orders.
--- Apply this file in the Supabase SQL Editor before deploying the Edge Functions.
+-- Apply this file in the Supabase SQL Editor to set up the shared store.
 
 create table if not exists public.admin_users (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -29,7 +29,7 @@ create table if not exists public.delivery_zones (
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
-  order_number text not null unique check (order_number ~ '^LE-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$'),
+  order_number text not null unique check (order_number ~ '^LE-[A-F0-9]{10}$'),
   name text not null,
   phone text not null check (phone ~ '^[0-9]{8,15}$'),
   order_type text not null check (order_type in ('Delivery', 'Pickup')),
@@ -64,6 +64,11 @@ alter table public.menu_items enable row level security;
 alter table public.delivery_zones enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+
+alter table public.orders drop constraint if exists orders_order_number_check;
+alter table public.orders
+  add constraint orders_order_number_check
+  check (order_number ~ '^LE-[A-F0-9]{10}$');
 
 create or replace function public.is_admin()
 returns boolean
@@ -144,8 +149,9 @@ create policy "Admins can read order items"
     )
   );
 
+drop function if exists public.place_order(text, text, text, text, text, text, text, text, text, jsonb);
+
 create or replace function public.place_order(
-  p_order_number text,
   p_name text,
   p_phone text,
   p_order_type text,
@@ -171,11 +177,9 @@ declare
   v_delivery_fee numeric(10, 2) := 0;
   v_total numeric(10, 2);
   v_order_id uuid;
+  v_order_number text;
   v_order_items jsonb := '[]'::jsonb;
 begin
-  if p_order_number !~ '^LE-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$' then
-    raise exception 'Invalid order reference.';
-  end if;
   if char_length(trim(coalesce(p_name, ''))) not between 1 and 80 then
     raise exception 'Enter a name between 1 and 80 characters.';
   end if;
@@ -245,12 +249,13 @@ begin
     raise exception 'That promo code is invalid.';
   end if;
   v_total := v_subtotal - v_discount + v_delivery_fee;
+  v_order_number := 'LE-' || upper(substr(md5(gen_random_uuid()::text), 1, 10));
 
   insert into public.orders (
     order_number, name, phone, order_type, zone, address, payment_method,
     notes, subtotal, discount, delivery_fee, total
   ) values (
-    p_order_number, trim(p_name), p_phone, p_order_type, p_zone,
+    v_order_number, trim(p_name), p_phone, p_order_type, p_zone,
     nullif(trim(coalesce(p_address, '')), ''), p_payment_method,
     coalesce(p_notes, ''), v_subtotal, v_discount, v_delivery_fee, v_total
   ) returning id into v_order_id;
@@ -265,7 +270,7 @@ begin
   from jsonb_array_elements(v_order_items) as snapshot(item);
 
   return jsonb_build_object(
-    'orderNumber', p_order_number,
+    'orderNumber', v_order_number,
     'name', trim(p_name),
     'phone', p_phone,
     'orderType', p_order_type,
@@ -283,10 +288,40 @@ begin
 end;
 $$;
 
-revoke all on function public.place_order(text, text, text, text, text, text, text, text, text, jsonb)
-  from public, anon, authenticated;
-grant execute on function public.place_order(text, text, text, text, text, text, text, text, text, jsonb)
-  to service_role;
+revoke all on function public.place_order(text, text, text, text, text, text, text, text, jsonb)
+  from public, anon, authenticated, service_role;
+grant execute on function public.place_order(text, text, text, text, text, text, text, text, jsonb)
+  to anon, authenticated;
+
+create or replace function public.track_order(
+  p_order_number text,
+  p_phone text
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (
+      select jsonb_build_object(
+        'orderNumber', order_record.order_number,
+        'status', order_record.status
+      )
+      from public.orders as order_record
+      where order_record.order_number = upper(trim(coalesce(p_order_number, '')))
+        and order_record.phone = regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')
+        and order_record.order_number ~ '^LE-[A-F0-9]{10}$'
+        and order_record.phone ~ '^[0-9]{8,15}$'
+      limit 1
+    ),
+    jsonb_build_object('status', null)
+  );
+$$;
+
+revoke all on function public.track_order(text, text) from public, anon, authenticated, service_role;
+grant execute on function public.track_order(text, text) to anon, authenticated;
 
 insert into public.delivery_zones (name, fee, note, sort_order) values
   ('Brewerville', 4, 'Local delivery', 1),

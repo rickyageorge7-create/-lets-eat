@@ -11,8 +11,8 @@
     address: "[YOUR PICKUP LOCATION], Monrovia, Liberia",
     hours: "Daily, 8:00 AM – 10:00 PM",
     lrdPerUsd: 190,
-    supabaseUrl: "",
-    supabaseAnonKey: "",
+    supabaseUrl: "https://ltrjgjwwypgsglztdggt.supabase.co",
+    supabaseAnonKey: "sb_publishable_vAblq0oGkW7YExlFwOM-aA_ug4P3M30",
     mobileMoney: {
       orange: "Add your Orange Money number and payment instructions in app.js.",
       mtn: "Add your MTN MoMo number and payment instructions in app.js.",
@@ -328,8 +328,9 @@
     const result = document.querySelector("#track-result");
     if (isRemoteOrderMode()) {
       result.textContent = "Checking order…";
-      const { data, error } = await supabaseClient.functions.invoke("track-order", {
-        body: { orderNumber: orderNumber.trim().toUpperCase(), phone: phoneDigits(customerPhone) },
+        const { data, error } = await supabaseClient.rpc("track_order", {
+          p_order_number: orderNumber.trim().toUpperCase(),
+          p_phone: phoneDigits(customerPhone),
       });
       if (error) {
         result.innerHTML = `<span class="track-error">${escapeHtml(backendError(error, "Unable to track order"))}</span>`;
@@ -632,18 +633,16 @@
     submitButton.textContent = "Sending order…";
     try {
       if (isRemoteOrderMode()) {
-        const { data: remoteOrder, error } = await supabaseClient.functions.invoke("place-order", {
-          body: {
-            name: String(data.get("name")).trim(),
-            phone: phoneDigits(data.get("phone")),
-            orderType: checkoutType,
-            zone: checkoutType === "Delivery" ? zone : null,
-            address: checkoutType === "Delivery" ? String(data.get("address")).trim() : null,
-            paymentMethod: String(data.get("payment")),
-            notes: String(data.get("notes") || "").trim(),
-            promoCode: promoApplied ? "LETSEAT10" : "",
-            items: getCartLines().map(({ item, quantity }) => ({ id: item.id, quantity })),
-          },
+        const { data: remoteOrder, error } = await supabaseClient.rpc("place_order", {
+          p_name: String(data.get("name")).trim(),
+          p_phone: phoneDigits(data.get("phone")),
+          p_order_type: checkoutType,
+          p_zone: checkoutType === "Delivery" ? zone : null,
+          p_address: checkoutType === "Delivery" ? String(data.get("address")).trim() : null,
+          p_payment_method: String(data.get("payment")),
+          p_notes: String(data.get("notes") || "").trim(),
+          p_promo_code: promoApplied ? "LETSEAT10" : "",
+          p_items: getCartLines().map(({ item, quantity }) => ({ id: item.id, quantity })),
         });
         if (error) throw error;
         order = {
