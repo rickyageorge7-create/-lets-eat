@@ -7,7 +7,7 @@ Responsive food-shop storefront for Monrovia and Brewerville. The front end is p
 The existing Lets Eat project URL and public publishable key are configured in `app.js`. The tables and policies have been installed in the Supabase project. Re-run the checked-in schema after updates to install the latest database functions:
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](./supabase/schema.sql), and click **Run**. It sets up sample menu and delivery zones, row-level security, and server-calculated order/tracking RPCs. Re-running it preserves existing menu items and orders while updating policies and the order functions.
-2. In **Authentication → Users**, create the owner’s email/password account. The project currently has no Auth users. A database password is not an Auth user password. In **Authentication → Settings**, disable public sign-ups.
+2. In **Authentication → Users**, create the owner’s email/password account if needed. A database password is not an Auth user password. In **Authentication → Settings**, disable public sign-ups.
    Choose a strong, unique password in Supabase Auth. Never put it in the repository or website.
 3. In SQL Editor, authorize the owner account (replace the email with its Supabase Auth email):
 
