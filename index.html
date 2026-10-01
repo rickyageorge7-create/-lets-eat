@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3492d" />
+    <meta name="description" content="Fresh fast food and local favorites delivered around Monrovia and Brewerville. Hungry? Lets Eat." />
+    <title>Lets Eat | Hungry? Lets Eat.</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="announcement">
+      <span>Fresh food, good mood.</span>
+      <span>Delivering around Monrovia &amp; Brewerville</span>
+    </div>
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="Lets Eat home"><span class="brand-mark">LE</span><span>Lets <b>Eat</b><small>HUNGRY? LETS EAT.</small></span></a>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a href="#menu">Menu</a><a href="#about">Our story</a><a href="#areas">Delivery areas</a><a href="#faq">FAQs</a>
+      </nav>
+      <div class="header-actions">
+        <button class="currency-toggle" id="currency-toggle" type="button" aria-label="Switch currency">USD <span>/</span> LRD</button>
+        <button class="cart-button" type="button" data-open-cart aria-label="Open shopping cart">Cart <span id="cart-count">0</span></button>
+      </div>
+    </header>
+
+    <main id="home">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-dot"></span> GOOD FOOD, RIGHT AROUND THE CORNER</p>
+          <h1>Hungry?<br /><span>Lets Eat.</span></h1>
+          <p class="hero-description">Your cravings called. We’ve got hot, fresh favorites ready to make their way to you.</p>
+          <div class="hero-actions"><a class="button button-dark" href="#menu">Order now <span aria-hidden="true">↗</span></a><a class="text-link" href="#areas">See delivery areas <span aria-hidden="true">→</span></a></div>
+          <div class="hero-social-proof"><div class="avatar-stack"><span>🍔</span><span>🍗</span><span>🥤</span></div><span>Made fresh. Delivered with love.</span></div>
+        </div>
+        <div class="hero-art">
+          <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&amp;fit=crop&amp;w=1100&amp;q=75" alt="Juicy burger with fresh lettuce and tomato" fetchpriority="high" />
+          <div class="hero-sticker"><span>MADE FRESH</span><b>Every<br />single<br />day!</b><span>♡ FROM US</span></div>
+          <div class="hero-caption"><span>THE GOOD STUFF</span><b>Big flavor. Zero fuss.</b></div>
+        </div>
+        <div class="hero-scribble" aria-hidden="true">YUM!</div>
+      </section>
+
+      <section class="deal-strip" aria-label="Daily deal">
+        <div class="deal-icon">✦</div><div><span class="eyebrow">A LITTLE SOMETHING EXTRA</span><b id="deal-title">Make today a combo kind of day</b></div>
+        <p id="deal-copy">Enter <strong>LETSEAT10</strong> at checkout for 10% off your meal.</p><a href="#menu">Shop deals <span>→</span></a>
+      </section>
+
+      <section class="section menu-section" id="menu">
+        <div class="section-heading"><div><p class="eyebrow">THE GOOD STUFF</p><h2>What sounds <span>good?</span></h2></div><div class="menu-tools"><label class="search-box"><span aria-hidden="true">⌕</span><input id="menu-search" type="search" placeholder="Find your favorite..." aria-label="Search menu" /></label></div></div>
+        <div class="category-list" id="category-list" role="group" aria-label="Filter menu categories"></div>
+        <div class="menu-grid" id="menu-grid" aria-live="polite"></div>
+        <p class="menu-empty" id="menu-empty" hidden>No dishes found. Try another search or category.</p>
+      </section>
+
+      <section class="story-band" id="about">
+        <div class="story-photo"><img loading="lazy" src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&amp;fit=crop&amp;w=900&amp;q=70" alt="A table full of freshly prepared food" /></div>
+        <div class="story-copy"><p class="eyebrow">A LITTLE TASTE OF HOME</p><h2>Good food brings<br />us <span>together.</span></h2><p>We’re Lets Eat: a local food stop serving Monrovia, Brewerville, and nearby neighborhoods. From quick bites to familiar favorites, every order is made to brighten your day.</p><a class="button button-dark" href="#contact">Get to know us <span>↗</span></a></div>
+        <span class="story-sparkle" aria-hidden="true">✳</span>
+      </section>
+
+      <section class="section service-section" id="areas">
+        <div class="section-heading"><div><p class="eyebrow">GOOD FOOD IS ON THE WAY</p><h2>We deliver <span>to you.</span></h2></div><p class="section-intro">Pick your neighborhood at checkout to see the delivery fee. Not sure if we reach you? Give us a call or WhatsApp.</p></div>
+        <div class="area-grid" id="area-grid"></div>
+      </section>
+
+      <section class="review-section">
+        <div class="review-heading"><p class="eyebrow">KIND WORDS, FULL BELLIES</p><h2>Don't just take <span>our word.</span></h2></div>
+        <div class="review-grid">
+          <article class="review-card"><div class="stars">★★★★★</div><p>“My lunch showed up hot and right on time. The chicken was so good!”</p><div class="review-person"><span class="review-avatar">M</span><span><b>Marie K.</b><small>Monrovia</small></span><span class="review-quote">“</span></div></article>
+          <article class="review-card review-featured"><div class="stars">★★★★★</div><p>“Finally, a spot nearby that makes ordering dinner this easy. The combos are a win.”</p><div class="review-person"><span class="review-avatar">J</span><span><b>James T.</b><small>Brewerville</small></span><span class="review-quote">“</span></div></article>
+          <article class="review-card"><div class="stars">★★★★★</div><p>“Fresh, tasty, and the portions are generous. Definitely ordering again.”</p><div class="review-person"><span class="review-avatar">S</span><span><b>Sarah D.</b><small>Paynesville</small></span><span class="review-quote">“</span></div></article>
+        </div>
+        <p class="review-note">Sample reviews — replace with real customer feedback before launch.</p>
+      </section>
+
+      <section class="contact-band" id="contact">
+        <div><p class="eyebrow">WE’RE HERE FOR YOU</p><h2>Let's make<br />you <span>something good.</span></h2></div>
+        <div class="contact-details"><p>Questions, big orders, or just saying hi? Reach out and we’ll get back to you.</p><a id="contact-phone" href="tel:">Call us <span>↗</span></a><a id="contact-email" href="mailto:">Email us <span>↗</span></a><span id="shop-hours"></span><span id="shop-address"></span><a id="map-link" target="_blank" rel="noreferrer">Find our pickup spot ↗</a></div>
+        <form class="contact-form" id="contact-form"><label>Your name<input name="name" required maxlength="80" placeholder="Your name" /></label><label>Your phone or email<input name="replyTo" required maxlength="100" placeholder="How can we reach you?" /></label><label>Your message<textarea name="message" required maxlength="500" placeholder="How can we help?"></textarea></label><button class="button button-dark" type="submit">Send us a message ↗</button><p id="contact-form-note" role="status"></p></form>
+      </section>
+      <section class="section faq-section" id="faq"><div><p class="eyebrow">GOOD QUESTION</p><h2>Quick <span>answers.</span></h2></div><div class="faq-list">
+        <details><summary>Where do you deliver?</summary><p>We currently serve Brewerville, Monrovia Central, and nearby Monrovia neighborhoods. Choose your zone at checkout to check the delivery fee.</p></details>
+        <details><summary>What payment methods do you accept?</summary><p>Cash on Delivery, Orange Money, and MTN MoMo. Mobile money instructions will appear as soon as you select a method at checkout.</p></details>
+        <details><summary>Can I pick up my order?</summary><p>Absolutely. Choose Pickup at checkout and we’ll confirm your order and pickup details by WhatsApp.</p></details>
+        <details><summary>How do I check on my order?</summary><p>Use the order number from your confirmation in the Track Order section below. Order updates are saved in this browser demo.</p></details>
+      </div></section>
+
+      <section class="track-section" id="track"><div><p class="eyebrow">YOUR FOOD, IN THE LOOP</p><h2>Track your <span>order.</span></h2><p>Enter the order number from your confirmation.</p></div><form id="track-form" class="track-form"><label for="track-number">Order number</label><div class="track-row"><input id="track-number" name="orderNumber" placeholder="e.g. LE-1024" required /><button class="button button-dark" type="submit">Track order →</button></div><div id="track-result" role="status" aria-live="polite"></div></form></section>
+    </main>
+
+    <footer class="site-footer"><a class="brand brand-footer" href="#home"><span class="brand-mark">LE</span><span>Lets <b>Eat</b><small>HUNGRY? LETS EAT.</small></span></a><span>Good food, good mood. Monrovia, Liberia.</span><div><a href="#menu">Menu</a><a href="#contact">Contact</a><button type="button" id="admin-open">Admin</button></div><nav class="social-links" id="social-links" aria-label="Social media"></nav><small>© <span id="year"></span> Lets Eat</small></footer>
+
+    <button class="whatsapp-float" id="whatsapp-link" type="button" aria-label="Chat with Lets Eat on WhatsApp"><span aria-hidden="true">◉</span><b>WhatsApp us</b></button>
+    <div class="mobile-cart-bar" id="mobile-cart-bar" hidden><button type="button" data-open-cart><span><b id="mobile-cart-count">0</b> items in your bag</span><b id="mobile-cart-total"></b></button></div>
+
+    <dialog class="cart-dialog" id="cart-dialog" aria-labelledby="cart-title"><div class="dialog-head"><div><p class="eyebrow">GOOD CHOICE</p><h2 id="cart-title">Your bag <span>♡</span></h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close cart">×</button></div><div id="cart-content"></div></dialog>
+    <dialog class="checkout-dialog" id="checkout-dialog" aria-labelledby="checkout-title"><div class="dialog-head"><div><p class="eyebrow">ALMOST THERE</p><h2 id="checkout-title">Checkout <span>♡</span></h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close checkout">×</button></div><div id="checkout-content"></div></dialog>
+    <dialog class="confirmation-dialog" id="confirmation-dialog" aria-labelledby="confirmation-title"><div id="confirmation-content"></div></dialog>
+    <dialog class="admin-dialog" id="admin-dialog" aria-labelledby="admin-title"><div class="dialog-head"><div><p class="eyebrow">SHOP OWNER TOOLS</p><h2 id="admin-title">Admin <span>desk.</span></h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close admin">×</button></div><div id="admin-content"></div></dialog>
+  </body>
+</html>

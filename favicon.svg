@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="18" fill="#f3492d" />
+  <path d="M16 23a17 17 0 0 1 32 0" fill="none" stroke="#ffcc3e" stroke-linecap="round" stroke-width="5" />
+  <text x="32" y="43" fill="#fffefa" font-family="Arial,sans-serif" font-size="18" font-weight="800" letter-spacing="-1" text-anchor="middle">LE</text>
+</svg>
