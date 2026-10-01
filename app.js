@@ -121,6 +121,13 @@
     }
   }
 
+  async function loadCustomerReviews() {
+    const { data, error } = await supabaseClient.rpc("list_approved_reviews");
+    if (error) throw error;
+    customerReviews = data || [];
+    renderCustomerReviews();
+  }
+
   async function requireAdmin() {
     const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
     if (sessionError) throw sessionError;
@@ -143,6 +150,8 @@
   }
   let cart = safeRead(STORAGE.cart, {});
   let orders = safeRead(STORAGE.orders, []);
+  let customerReviews = [];
+  let adminReviews = [];
   let currency = safeRead(STORAGE.currency, "USD") === "LRD" ? "LRD" : "USD";
   let category = "All";
   let promoApplied = false;
@@ -326,6 +335,21 @@
     document.querySelector("#track-result").innerHTML = `<div class="track-success"><b>${escapeHtml(order.id)}</b> · ${escapeHtml(order.status)}<br /><small>${activeIndex < 3 ? `Next: ${statuses[activeIndex + 1]}` : "Enjoy your meal!"}</small></div>`;
   }
 
+  function renderCustomerReviews() {
+    const grid = document.querySelector("#review-grid");
+    if (!customerReviews.length) {
+      grid.innerHTML = '<p class="review-empty">No approved customer reviews yet. Be the first to share your experience.</p>';
+      return;
+    }
+    grid.innerHTML = customerReviews.map((review) => {
+      const name = String(review.customer_name || "Customer");
+      const location = String(review.location || "");
+      const rating = Number(review.rating);
+      const stars = `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+      return `<article class="review-card"><div class="stars" role="img" aria-label="${rating} out of 5 stars">${stars}</div><p>${escapeHtml(review.comment)}</p><div class="review-person"><span class="review-avatar">${escapeHtml(name.charAt(0).toUpperCase())}</span><span><b>${escapeHtml(name)}</b><small>${escapeHtml(location || "Customer review")}</small></span></div></article>`;
+    }).join("");
+  }
+
   async function renderTrack(orderNumber, customerPhone) {
     const result = document.querySelector("#track-result");
     if (isRemoteOrderMode()) {
@@ -363,6 +387,7 @@
       if (await requireAdmin()) {
         await loadSharedMenu();
         await loadDeliveryZones();
+        await loadAdminReviews();
         if (adminTab === "orders") await loadAdminOrders();
       }
       renderAdmin();
@@ -400,6 +425,14 @@
     }));
   }
 
+  async function loadAdminReviews() {
+    const { data, error } = await supabaseClient.from("customer_reviews")
+      .select("id,customer_name,location,rating,comment,status,created_at")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    adminReviews = data;
+  }
+
   function renderAdmin() {
     const content = document.querySelector("#admin-content");
     if (!supabaseClient) {
@@ -410,7 +443,8 @@
       content.innerHTML = `<p class="admin-warning">Sign in with the administrator account you created in Supabase. Access is checked by database row-level security.</p><form class="admin-login" id="admin-login"><label class="field"><span class="field-label">Admin email</span><input type="email" name="email" required autocomplete="username" /></label><label class="field"><span class="field-label">Password</span><input type="password" name="password" required autocomplete="current-password" /></label><p class="form-error" id="admin-error" role="alert"></p><button class="button button-dark" type="submit">Sign in securely</button></form>`;
       return;
     }
-    content.innerHTML = `<p class="admin-warning">Signed in as ${escapeHtml(adminUser.email || "administrator")} <button class="button button-light" type="button" data-admin-logout>Sign out</button></p><div class="admin-tabs"><button type="button" data-admin-tab="menu" class="${adminTab === "menu" ? "active" : ""}">Menu (${menu.length})</button><button type="button" data-admin-tab="orders" class="${adminTab === "orders" ? "active" : ""}">Orders (${orders.length})</button></div>${adminTab === "menu" ? renderAdminMenu() : renderAdminOrders()}`;
+    const pendingReviews = adminReviews.filter((review) => review.status === "pending").length;
+    content.innerHTML = `<p class="admin-warning">Signed in as ${escapeHtml(adminUser.email || "administrator")} <button class="button button-light" type="button" data-admin-logout>Sign out</button></p><div class="admin-tabs"><button type="button" data-admin-tab="menu" class="${adminTab === "menu" ? "active" : ""}">Menu (${menu.length})</button><button type="button" data-admin-tab="orders" class="${adminTab === "orders" ? "active" : ""}">Orders (${orders.length})</button><button type="button" data-admin-tab="reviews" class="${adminTab === "reviews" ? "active" : ""}">Reviews (${pendingReviews})</button></div>${adminTab === "menu" ? renderAdminMenu() : adminTab === "orders" ? renderAdminOrders() : renderAdminReviews()}`;
   }
 
   function renderAdminMenu() {
@@ -432,6 +466,11 @@
     if (!orders.length) return '<p class="cart-empty">No orders have been placed yet.</p>';
     const statuses = ["Received", "Preparing", "On the way", "Delivered"];
     return `<div>${orders.map((order) => `<article class="admin-order"><div class="admin-order-head"><span>${escapeHtml(order.id)} · ${escapeHtml(order.name)}</span><span>${moneyFor(order.total, order.currency)}</span></div><p>${order.items.map((line) => `${line.quantity} × ${escapeHtml(line.name)}`).join(", ")}<br />${escapeHtml(order.phone)} · ${escapeHtml(order.type)}${order.zone ? ` · ${escapeHtml(order.zone)}` : ""}</p><p>${escapeHtml(order.address || "Pickup")} · ${escapeHtml(order.payment)}${order.notes ? `<br />Notes: ${escapeHtml(order.notes)}` : ""}</p><label class="field-label">Status <select class="status-select" data-order-status="${escapeHtml(order.id)}">${statuses.map((status) => `<option ${order.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label></article>`).join("")}</div>`;
+  }
+
+  function renderAdminReviews() {
+    if (!adminReviews.length) return '<p class="cart-empty">No customer reviews have been submitted yet.</p>';
+    return `<div class="admin-list">${adminReviews.map((review) => `<article class="admin-review"><div class="admin-review-head"><b>${escapeHtml(review.customer_name)}</b><span>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</span></div><p>${escapeHtml(review.comment)}</p><small>${escapeHtml(review.location || "No neighborhood provided")} · ${new Date(review.created_at).toLocaleDateString()}</small><label class="field-label">Publication status <select class="status-select" data-review-status="${escapeHtml(review.id)}"><option value="pending" ${review.status === "pending" ? "selected" : ""}>Pending approval</option><option value="approved" ${review.status === "approved" ? "selected" : ""}>Approved — public</option><option value="rejected" ${review.status === "rejected" ? "selected" : ""}>Rejected</option></select></label></article>`).join("")}</div>`;
   }
 
   function whatsappContact() {
@@ -457,6 +496,15 @@
   renderMenu();
   renderAreas();
   updateCartIndicators();
+  if (supabaseClient) {
+    loadCustomerReviews().catch((error) => {
+      console.error("Unable to load customer reviews.", error);
+      document.querySelector("#review-grid").innerHTML = '<p class="review-empty">Customer reviews are temporarily unavailable. Please try again later.</p>';
+      document.querySelector("#review-note").textContent = "Reviews could not be loaded.";
+    });
+  } else {
+    renderCustomerReviews();
+  }
   if (!supabaseConfigured) {
     setBackendNotice("Demo mode: orders stay in this browser and admin is disabled until Supabase is configured.");
   } else if (!supabaseClient) {
@@ -537,6 +585,7 @@
         }
         adminUser = null;
         orders = [];
+        adminReviews = [];
         renderAdmin();
       } catch (error) {
         alert(backendError(error, "Unable to sign out"));
@@ -545,6 +594,7 @@
       adminTab = target.dataset.adminTab;
       try {
         if (adminTab === "orders" && isRemoteOrderMode()) await loadAdminOrders();
+        if (adminTab === "reviews" && isRemoteOrderMode()) await loadAdminReviews();
         renderAdmin();
       } catch (error) {
         alert(backendError(error, "Unable to load admin data"));
@@ -600,6 +650,40 @@
       document.querySelector("#track-number").value,
       document.querySelector("#track-phone").value,
     );
+  });
+  document.querySelector("#review-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const status = document.querySelector("#review-form-status");
+    const button = form.querySelector('[type="submit"]');
+    if (!supabaseClient) {
+      status.className = "review-form-status form-error";
+      status.textContent = "The review service is unavailable right now. Please try again later.";
+      return;
+    }
+    const data = new FormData(form);
+    button.disabled = true;
+    button.textContent = "Sending review…";
+    status.className = "review-form-status";
+    status.textContent = "";
+    try {
+      const { error } = await supabaseClient.rpc("submit_customer_review", {
+        p_name: String(data.get("name")).trim(),
+        p_location: String(data.get("location") || "").trim(),
+        p_rating: Number(data.get("rating")),
+        p_comment: String(data.get("comment")).trim(),
+      });
+      if (error) throw error;
+      form.reset();
+      status.textContent = "Thanks for sharing! Your review is awaiting approval before it appears on the site.";
+    } catch (error) {
+      status.className = "review-form-status form-error";
+      status.textContent = backendError(error, "Unable to submit review");
+    } finally {
+      button.disabled = false;
+      button.textContent = "Send for approval";
+    }
   });
   document.querySelector("#checkout-content").addEventListener("change", (event) => {
     if (event.target.name) checkoutDraft[event.target.name] = event.target.value;
@@ -721,6 +805,7 @@
         if (!(await requireAdmin())) throw new Error("Unable to verify administrator access.");
         await loadSharedMenu();
         await loadDeliveryZones();
+        await loadAdminReviews();
         renderAdmin();
       } catch (error) {
         errorNode.textContent = backendError(error, "Admin sign-in failed");
@@ -762,6 +847,16 @@
         renderAdmin();
       } catch (error) {
         alert(backendError(error, "Unable to update order status"));
+      }
+    } else if (event.target.matches("[data-review-status]")) {
+      try {
+        const { error } = await supabaseClient.from("customer_reviews")
+          .update({ status: event.target.value }).eq("id", event.target.dataset.reviewStatus);
+        if (error) throw error;
+        await loadAdminReviews();
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to update review status"));
       }
     }
   });

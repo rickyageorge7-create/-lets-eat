@@ -50,6 +50,16 @@ create table if not exists public.orders (
   )
 );
 
+create table if not exists public.customer_reviews (
+  id uuid primary key default gen_random_uuid(),
+  customer_name text not null check (char_length(customer_name) between 2 and 80),
+  location text check (location is null or char_length(location) <= 60),
+  rating smallint not null check (rating between 1 and 5),
+  comment text not null check (char_length(comment) between 10 and 1000),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.order_items (
   id bigint generated always as identity primary key,
   order_id uuid not null references public.orders (id) on delete cascade,
@@ -64,6 +74,7 @@ alter table public.menu_items enable row level security;
 alter table public.delivery_zones enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.customer_reviews enable row level security;
 
 alter table public.orders drop constraint if exists orders_order_number_check;
 alter table public.orders
@@ -92,6 +103,9 @@ grant select on public.menu_items, public.delivery_zones to anon, authenticated;
 grant insert, update, delete on public.menu_items to authenticated;
 grant select on public.orders, public.order_items to authenticated;
 grant update (status) on public.orders to authenticated;
+revoke all on public.customer_reviews from public, anon, authenticated;
+grant select on public.customer_reviews to authenticated;
+grant update (status) on public.customer_reviews to authenticated;
 
 drop policy if exists "Anyone can read menu" on public.menu_items;
 create policy "Anyone can read menu"
@@ -114,6 +128,17 @@ drop policy if exists "Admins can delete menu" on public.menu_items;
 create policy "Admins can delete menu"
   on public.menu_items for delete to authenticated
   using ((select public.is_admin()));
+
+drop policy if exists "Admins can read customer reviews" on public.customer_reviews;
+create policy "Admins can read customer reviews"
+  on public.customer_reviews for select to authenticated
+  using ((select public.is_admin()));
+
+drop policy if exists "Admins can update customer review status" on public.customer_reviews;
+create policy "Admins can update customer review status"
+  on public.customer_reviews for update to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 drop policy if exists "Anyone can read active delivery zones" on public.delivery_zones;
 create policy "Anyone can read active delivery zones"
@@ -148,6 +173,75 @@ create policy "Admins can read order items"
         and (select public.is_admin())
     )
   );
+
+create or replace function public.list_approved_reviews()
+returns table (
+  id uuid,
+  customer_name text,
+  location text,
+  rating smallint,
+  comment text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select r.id, r.customer_name, r.location, r.rating, r.comment, r.created_at
+  from public.customer_reviews as r
+  where r.status = 'approved'
+  order by r.created_at desc
+  limit 12;
+$$;
+
+revoke all on function public.list_approved_reviews() from public, anon, authenticated, service_role;
+grant execute on function public.list_approved_reviews() to anon, authenticated;
+
+create or replace function public.submit_customer_review(
+  p_name text,
+  p_location text,
+  p_rating integer,
+  p_comment text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_review_id uuid;
+begin
+  if char_length(trim(coalesce(p_name, ''))) not between 2 and 80 then
+    raise exception 'Enter a name between 2 and 80 characters.';
+  end if;
+  if char_length(trim(coalesce(p_location, ''))) > 60 then
+    raise exception 'Neighborhood must be 60 characters or fewer.';
+  end if;
+  if coalesce(p_rating, 0) not between 1 and 5 then
+    raise exception 'Choose a rating from 1 to 5 stars.';
+  end if;
+  if char_length(trim(coalesce(p_comment, ''))) not between 10 and 1000 then
+    raise exception 'Write a review between 10 and 1,000 characters.';
+  end if;
+
+  insert into public.customer_reviews (customer_name, location, rating, comment)
+  values (
+    trim(p_name),
+    nullif(trim(coalesce(p_location, '')), ''),
+    p_rating,
+    trim(p_comment)
+  )
+  returning id into v_review_id;
+
+  return v_review_id;
+end;
+$$;
+
+revoke all on function public.submit_customer_review(text, text, integer, text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.submit_customer_review(text, text, integer, text)
+  to anon, authenticated;
 
 drop function if exists public.place_order(text, text, text, text, text, text, text, text, text, jsonb);
 

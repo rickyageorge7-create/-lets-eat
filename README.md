@@ -42,7 +42,13 @@ With Supabase configured, serve the project directory over HTTP (for example, `p
 
 The `CONFIG` object at the top of `app.js` contains the shop name, order WhatsApp number (`phoneDisplay` / `phoneDigits`), separate customer-care call number (`customerCarePhoneDisplay` / `customerCarePhoneDigits`), email, pickup city, hours, USD/LRD display rate, payment instructions, social links, and public Supabase configuration. Phone digits for `wa.me` and `tel:` links use Liberia's country code `231` without the local leading zero. The shop currently uses `0775399168` for WhatsApp orders and `0555112722` for customer-care calls. Its pickup point is in Monrovia; contact the shop for directions. The creator portrait is `img/ricky.jpg`. The `zones` in `supabase/schema.sql` define shared delivery areas and fees. After signing into Admin, manage menu names, categories, prices, photo URLs, availability, and order statuses from the dashboard.
 
-Replace sample reviews and remote Unsplash photography with real, permissioned shop content before launch. Keep menu photo URLs on HTTPS and compressed for mobile.
+Replace remote Unsplash photography with real, permissioned shop content before launch. Keep menu photo URLs on HTTPS and compressed for mobile.
+
+## Customer reviews
+
+Customers can submit a name, optional neighborhood, 1–5 star rating, and review from the Reviews section. New submissions stay private as **Pending** until an administrator signs in, opens **Admin → Reviews**, and approves or rejects them. Only approved reviews are returned to the public site; row-level security prevents anonymous visitors from reading pending reviews or changing review status.
+
+Before enabling submissions on a fresh or existing Supabase project, run the updated `supabase/schema.sql` in the SQL Editor using the setup steps above. The script adds the review table, validation functions, and admin-only moderation permissions without deleting existing reviews or orders.
 
 ## Publish on GitHub Pages
 
