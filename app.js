@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  // Update these details before publishing. The password is only a local-demo gate,
-  // not secure authentication; see README.md before using the admin tools online.
+  // The Supabase URL and publishable/anon key are public client configuration.
+  // Never put a service-role key or admin password in this file.
   const CONFIG = {
     shopName: "Lets Eat",
     phoneDisplay: "[YOUR PHONE NUMBER]",
@@ -11,7 +11,8 @@
     address: "[YOUR PICKUP LOCATION], Monrovia, Liberia",
     hours: "Daily, 8:00 AM – 10:00 PM",
     lrdPerUsd: 190,
-    adminPassword: "letseat2026",
+    supabaseUrl: "",
+    supabaseAnonKey: "",
     mobileMoney: {
       orange: "Add your Orange Money number and payment instructions in app.js.",
       mtn: "Add your MTN MoMo number and payment instructions in app.js.",
@@ -24,11 +25,15 @@
   };
 
   const CATEGORIES = ["All", "Fast Food", "Local Dishes", "Drinks", "Snacks", "Combos & Deals"];
-  const ZONES = [
+  let zones = [
     { name: "Brewerville", fee: 4, note: "Local delivery" },
     { name: "Monrovia Central", fee: 3, note: "Central Monrovia" },
     { name: "Nearby areas", fee: 5, note: "Greater Monrovia" },
   ];
+  const supabaseConfigured = Boolean(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
+  const supabaseClient = supabaseConfigured
+    ? window.supabase?.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey)
+    : null;
   const INITIAL_MENU = [
     { id: "classic-burger", name: "Classic Burger", category: "Fast Food", price: 7.5, description: "Juicy beef, crisp lettuce, tomato & house sauce.", photo: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=70", badge: "BEST SELLER", available: true },
     { id: "crispy-chicken", name: "Crispy Chicken", category: "Fast Food", price: 8, description: "Golden crunchy chicken with a little kick.", photo: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=700&q=70", badge: "CRUNCHY", available: true },
@@ -62,6 +67,71 @@
       alert("Your browser could not save this change. Check available storage and try again.");
     }
   };
+  const setBackendNotice = (message, isError = false) => {
+    const notice = document.querySelector("#backend-notice");
+    notice.textContent = message;
+    notice.hidden = !message;
+    notice.classList.toggle("backend-error", isError);
+  };
+  const backendError = (error, context) => {
+    console.error(`${context}:`, error);
+    return error?.message || "Please try again later.";
+  };
+  const isRemoteOrderMode = () => Boolean(supabaseClient);
+  const phoneDigits = (value) => String(value ?? "").replace(/\D/g, "");
+  const fromDbMenu = (row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    price: Number(row.price),
+    description: row.description,
+    photo: row.photo,
+    badge: row.badge || "",
+    available: row.available,
+  });
+  const toDbMenu = (item) => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    price: item.price,
+    description: item.description,
+    photo: item.photo,
+    badge: item.badge || "",
+    available: item.available,
+  });
+
+  async function loadSharedMenu() {
+    const { data, error } = await supabaseClient.from("menu_items")
+      .select("id,name,category,price,description,photo,badge,available")
+      .order("category").order("name");
+    if (error) throw error;
+    menu = data.map(fromDbMenu);
+    renderMenu();
+  }
+
+  async function loadDeliveryZones() {
+    const { data, error } = await supabaseClient.from("delivery_zones")
+      .select("name,fee,note").eq("active", true).order("sort_order");
+    if (error) throw error;
+    if (data.length) {
+      zones = data.map((zone) => ({ ...zone, fee: Number(zone.fee) }));
+      renderAreas();
+    }
+  }
+
+  async function requireAdmin() {
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData.session) return false;
+    const { data: allowed, error } = await supabaseClient.rpc("is_admin");
+    if (error) throw error;
+    if (!allowed) {
+      await supabaseClient.auth.signOut();
+      throw new Error("This Supabase account is not authorized as a Lets Eat administrator.");
+    }
+    adminUser = sessionData.session.user;
+    return true;
+  }
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const formatUsd = (value) => `$${Number(value).toFixed(2)}`;
   let menu = safeRead(STORAGE.menu, null);
@@ -78,7 +148,7 @@
   let checkoutDraft = {};
   let adminTab = "menu";
   let adminEditId = "";
-  let adminAuthenticated = false;
+  let adminUser = null;
 
   function moneyFor(value, unit) {
     return unit === "LRD"
@@ -106,7 +176,7 @@
 
   function deliveryFee(zoneName) {
     if (checkoutType === "Pickup") return 0;
-    return ZONES.find((zone) => zone.name === zoneName)?.fee ?? ZONES[0].fee;
+    return zones.find((zone) => zone.name === zoneName)?.fee ?? zones[0].fee;
   }
 
   function discountAmount() {
@@ -142,7 +212,7 @@
 
   function renderAreas() {
     const symbols = ["⌂", "⌖", "✦"];
-    document.querySelector("#area-grid").innerHTML = ZONES.map((zone, index) => `
+    document.querySelector("#area-grid").innerHTML = zones.map((zone, index) => `
       <article class="area-card"><div class="area-icon">${symbols[index]}</div><div><b>${escapeHtml(zone.name)}</b><span>${escapeHtml(zone.note)} · from ${money(zone.fee)}</span></div></article>`,
     ).join("");
   }
@@ -183,7 +253,7 @@
           <label class="field"><span class="field-label">Your name</span><input name="name" autocomplete="name" required maxlength="80" placeholder="Name for the order" value="${escapeHtml(checkoutDraft.name ?? "")}" /></label>
           <label class="field"><span class="field-label">Phone number</span><input name="phone" type="tel" autocomplete="tel" required maxlength="24" placeholder="+231 ..." value="${escapeHtml(checkoutDraft.phone ?? "")}" /></label>
         </div>
-        ${checkoutType === "Delivery" ? `<div class="form-grid"><label class="field"><span class="field-label">Delivery area</span><select name="zone">${ZONES.map((zone) => `<option value="${escapeHtml(zone.name)}" ${checkoutDraft.zone === zone.name ? "selected" : ""}>${escapeHtml(zone.name)} — ${money(zone.fee)}</option>`).join("")}</select></label><label class="field"><span class="field-label">Delivery address</span><input name="address" autocomplete="street-address" required maxlength="180" placeholder="Street, landmark, neighborhood" value="${escapeHtml(checkoutDraft.address ?? "")}" /></label></div>` : `<div class="field"><span class="field-label">Pickup location</span><input value="${escapeHtml(CONFIG.address)}" disabled /></div>`}
+        ${checkoutType === "Delivery" ? `<div class="form-grid"><label class="field"><span class="field-label">Delivery area</span><select name="zone">${zones.map((zone) => `<option value="${escapeHtml(zone.name)}" ${checkoutDraft.zone === zone.name ? "selected" : ""}>${escapeHtml(zone.name)} — ${money(zone.fee)}</option>`).join("")}</select></label><label class="field"><span class="field-label">Delivery address</span><input name="address" autocomplete="street-address" required maxlength="180" placeholder="Street, landmark, neighborhood" value="${escapeHtml(checkoutDraft.address ?? "")}" /></label></div>` : `<div class="field"><span class="field-label">Pickup location</span><input value="${escapeHtml(CONFIG.address)}" disabled /></div>`}
         <label class="field"><span class="field-label">Payment method</span><select name="payment"><option ${!checkoutDraft.payment || checkoutDraft.payment === "Cash on Delivery" ? "selected" : ""}>Cash on Delivery</option><option ${checkoutDraft.payment === "Orange Money" ? "selected" : ""}>Orange Money</option><option ${checkoutDraft.payment === "MTN MoMo" ? "selected" : ""}>MTN MoMo</option></select></label>
         <div id="payment-instructions" class="payment-note">${escapeHtml(paymentInstructions(checkoutDraft.payment || "Cash on Delivery"))}</div>
         <div class="field"><label class="field-label" for="order-notes">Order notes (optional)</label><textarea id="order-notes" name="notes" maxlength="250" placeholder="Allergies, directions, or a little extra sauce?">${escapeHtml(checkoutDraft.notes ?? "")}</textarea></div>
@@ -195,14 +265,14 @@
   }
 
   function checkoutTotals() {
-    const zone = document.querySelector('#checkout-form [name="zone"]')?.value ?? ZONES[0].name;
+    const zone = document.querySelector('#checkout-form [name="zone"]')?.value ?? zones[0].name;
     const fee = deliveryFee(zone);
     const discount = discountAmount();
     return `<div class="summary-row"><span>Food</span><span>${money(cartSubtotal())}</span></div>${discount ? `<div class="summary-row"><span>Promo discount</span><span>−${money(discount)}</span></div>` : ""}<div class="summary-row"><span>${checkoutType === "Pickup" ? "Pickup" : "Delivery"}</span><span>${fee ? money(fee) : "Free"}</span></div><div class="summary-row total"><span>Total</span><span>${money(Math.max(0, cartSubtotal() - discount + fee))}</span></div>`;
   }
 
   function checkoutTotalValue(zoneName) {
-    return Math.max(0, cartSubtotal() - discountAmount() + deliveryFee(zoneName ?? ZONES[0].name));
+    return Math.max(0, cartSubtotal() - discountAmount() + deliveryFee(zoneName ?? zones[0].name));
   }
 
   function showOrder(order) {
@@ -228,6 +298,7 @@
     document.querySelector("#confirmation-track").addEventListener("click", () => {
       document.querySelector("#confirmation-dialog").close();
       document.querySelector("#track-number").value = order.id;
+      document.querySelector("#track-phone").value = order.phone;
       showTrackResult(order);
       document.querySelector("#track").scrollIntoView({ behavior: "smooth" });
     });
@@ -253,28 +324,90 @@
     document.querySelector("#track-result").innerHTML = `<div class="track-success"><b>${escapeHtml(order.id)}</b> · ${escapeHtml(order.status)}<br /><small>${activeIndex < 3 ? `Next: ${statuses[activeIndex + 1]}` : "Enjoy your meal!"}</small></div>`;
   }
 
-  function renderTrack(orderNumber) {
+  async function renderTrack(orderNumber, customerPhone) {
+    const result = document.querySelector("#track-result");
+    if (isRemoteOrderMode()) {
+      result.textContent = "Checking order…";
+      const { data, error } = await supabaseClient.functions.invoke("track-order", {
+        body: { orderNumber: orderNumber.trim().toUpperCase(), phone: phoneDigits(customerPhone) },
+      });
+      if (error) {
+        result.innerHTML = `<span class="track-error">${escapeHtml(backendError(error, "Unable to track order"))}</span>`;
+        return;
+      }
+      if (!data?.status) {
+        result.innerHTML = '<span class="track-error">We couldn’t find a matching order and phone number. Check both details and try again.</span>';
+        return;
+      }
+      showTrackResult({ id: data.orderNumber, status: data.status });
+      return;
+    }
     const order = orders.find((entry) => entry.id.toLowerCase() === orderNumber.trim().toLowerCase());
     if (!order) {
-      document.querySelector("#track-result").innerHTML = '<span class="track-error">We couldn’t find that order in this browser. Check the number or contact us on WhatsApp.</span>';
+      result.innerHTML = '<span class="track-error">Demo orders can only be tracked in the browser where they were placed. Configure Supabase to share orders.</span>';
       return;
     }
     showTrackResult(order);
   }
 
-  function openAdmin() {
-    adminAuthenticated = false;
+  async function openAdmin() {
     document.querySelector("#admin-dialog").showModal();
-    renderAdmin();
+    try {
+      if (!supabaseClient) {
+        renderAdmin();
+        return;
+      }
+      if (await requireAdmin()) {
+        await loadSharedMenu();
+        await loadDeliveryZones();
+        if (adminTab === "orders") await loadAdminOrders();
+      }
+      renderAdmin();
+    } catch (error) {
+      const message = backendError(error, "Unable to open admin");
+      document.querySelector("#admin-content").innerHTML = `<p class="form-error" role="alert">${escapeHtml(message)}</p><button class="button button-light" type="button" data-admin-logout>Return to login</button>`;
+    }
+  }
+
+  async function loadAdminOrders() {
+    const { data, error } = await supabaseClient.from("orders")
+      .select("id,order_number,name,phone,order_type,zone,address,payment_method,notes,subtotal,discount,delivery_fee,total,status,currency,created_at,order_items(name,unit_price,quantity)")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    orders = data.map((row) => ({
+      id: row.order_number,
+      name: row.name,
+      phone: row.phone,
+      type: row.order_type,
+      zone: row.zone || "",
+      address: row.address || "",
+      payment: row.payment_method,
+      notes: row.notes || "",
+      subtotal: Number(row.subtotal),
+      discount: Number(row.discount),
+      deliveryFee: Number(row.delivery_fee),
+      total: Number(row.total),
+      currency: row.currency,
+      status: row.status,
+      items: row.order_items.map((line) => ({
+        name: line.name,
+        price: Number(line.unit_price),
+        quantity: line.quantity,
+      })),
+    }));
   }
 
   function renderAdmin() {
     const content = document.querySelector("#admin-content");
-    if (!adminAuthenticated) {
-      content.innerHTML = `<p class="admin-warning">Local demo only: menu and orders are stored in this browser. For production admin security, connect a server or Supabase; do not use this password gate on a public site.</p><form class="admin-login" id="admin-login"><label class="field"><span class="field-label">Admin password</span><input type="password" name="password" required autocomplete="current-password" /></label><p class="form-error" id="admin-error" role="alert"></p><button class="button button-dark" type="submit">Unlock admin</button><small>Demo password: <code>letseat2026</code> (change in app.js)</small></form>`;
+    if (!supabaseClient) {
+      content.innerHTML = '<p class="admin-warning">Admin access is disabled until Supabase is configured. There is no password in this public site. Follow the Supabase setup steps in README.md.</p>';
       return;
     }
-    content.innerHTML = `<p class="admin-warning">Changes only affect this browser. See README.md before using this dashboard with real customer data.</p><div class="admin-tabs"><button type="button" data-admin-tab="menu" class="${adminTab === "menu" ? "active" : ""}">Menu (${menu.length})</button><button type="button" data-admin-tab="orders" class="${adminTab === "orders" ? "active" : ""}">Orders (${orders.length})</button></div>${adminTab === "menu" ? renderAdminMenu() : renderAdminOrders()}`;
+    if (!adminUser) {
+      content.innerHTML = `<p class="admin-warning">Sign in with the administrator account you created in Supabase. Access is checked by database row-level security.</p><form class="admin-login" id="admin-login"><label class="field"><span class="field-label">Admin email</span><input type="email" name="email" required autocomplete="username" /></label><label class="field"><span class="field-label">Password</span><input type="password" name="password" required autocomplete="current-password" /></label><p class="form-error" id="admin-error" role="alert"></p><button class="button button-dark" type="submit">Sign in securely</button></form>`;
+      return;
+    }
+    content.innerHTML = `<p class="admin-warning">Signed in as ${escapeHtml(adminUser.email || "administrator")} <button class="button button-light" type="button" data-admin-logout>Sign out</button></p><div class="admin-tabs"><button type="button" data-admin-tab="menu" class="${adminTab === "menu" ? "active" : ""}">Menu (${menu.length})</button><button type="button" data-admin-tab="orders" class="${adminTab === "orders" ? "active" : ""}">Orders (${orders.length})</button></div>${adminTab === "menu" ? renderAdminMenu() : renderAdminOrders()}`;
   }
 
   function renderAdminMenu() {
@@ -293,9 +426,9 @@
   }
 
   function renderAdminOrders() {
-    if (!orders.length) return '<p class="cart-empty">No orders yet. Orders submitted from this browser will show up here.</p>';
+    if (!orders.length) return '<p class="cart-empty">No orders have been placed yet.</p>';
     const statuses = ["Received", "Preparing", "On the way", "Delivered"];
-    return `<div>${[...orders].reverse().map((order) => `<article class="admin-order"><div class="admin-order-head"><span>${escapeHtml(order.id)} · ${escapeHtml(order.name)}</span><span>${moneyFor(order.total, order.currency)}</span></div><p>${order.items.map((line) => `${line.quantity} × ${escapeHtml(line.name)}`).join(", ")}<br />${escapeHtml(order.phone)} · ${escapeHtml(order.type)}${order.zone ? ` · ${escapeHtml(order.zone)}` : ""}</p><p>${escapeHtml(order.address || "Pickup")} · ${escapeHtml(order.payment)}${order.notes ? `<br />Notes: ${escapeHtml(order.notes)}` : ""}</p><label class="field-label">Status <select class="status-select" data-order-status="${escapeHtml(order.id)}">${statuses.map((status) => `<option ${order.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label></article>`).join("")}</div>`;
+    return `<div>${orders.map((order) => `<article class="admin-order"><div class="admin-order-head"><span>${escapeHtml(order.id)} · ${escapeHtml(order.name)}</span><span>${moneyFor(order.total, order.currency)}</span></div><p>${order.items.map((line) => `${line.quantity} × ${escapeHtml(line.name)}`).join(", ")}<br />${escapeHtml(order.phone)} · ${escapeHtml(order.type)}${order.zone ? ` · ${escapeHtml(order.zone)}` : ""}</p><p>${escapeHtml(order.address || "Pickup")} · ${escapeHtml(order.payment)}${order.notes ? `<br />Notes: ${escapeHtml(order.notes)}` : ""}</p><label class="field-label">Status <select class="status-select" data-order-status="${escapeHtml(order.id)}">${statuses.map((status) => `<option ${order.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label></article>`).join("")}</div>`;
   }
 
   function whatsappContact() {
@@ -318,6 +451,16 @@
   renderMenu();
   renderAreas();
   updateCartIndicators();
+  if (!supabaseConfigured) {
+    setBackendNotice("Demo mode: orders stay in this browser and admin is disabled until Supabase is configured.");
+  } else if (!supabaseClient) {
+    setBackendNotice("Supabase could not load. Check the connection and Supabase setup.", true);
+  } else {
+    setBackendNotice("Connecting to the shared Lets Eat menu and ordering service…");
+    Promise.all([loadSharedMenu(), loadDeliveryZones()])
+      .then(() => setBackendNotice(""))
+      .catch((error) => setBackendNotice(backendError(error, "Unable to load Supabase data"), true));
+  }
 
   document.addEventListener("error", (event) => {
     const image = event.target;
@@ -326,7 +469,7 @@
     image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%23fff5e9'/%3E%3Ctext x='50%25' y='48%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='74' font-weight='700' fill='%23f3492d'%3ELets Eat%3C/text%3E%3Ctext x='50%25' y='63%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='24' fill='%23797b76'%3EFresh food, good mood%3C/text%3E%3C/svg%3E";
   }, true);
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const target = event.target.closest("button, a");
     if (!target) return;
     if (target.matches("[data-category]")) {
@@ -379,29 +522,57 @@
     } else if (target.id === "whatsapp-link") {
       whatsappContact();
     } else if (target.id === "admin-open") {
-      openAdmin();
+      await openAdmin();
+    } else if (target.matches("[data-admin-logout]")) {
+      try {
+        if (supabaseClient) {
+          const { error } = await supabaseClient.auth.signOut();
+          if (error) throw error;
+        }
+        adminUser = null;
+        orders = [];
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to sign out"));
+      }
     } else if (target.matches("[data-admin-tab]")) {
       adminTab = target.dataset.adminTab;
-      renderAdmin();
+      try {
+        if (adminTab === "orders" && isRemoteOrderMode()) await loadAdminOrders();
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to load admin data"));
+      }
     } else if (target.matches("[data-edit-menu]")) {
       adminEditId = target.dataset.editMenu;
       renderAdmin();
     } else if (target.matches("[data-toggle-sold]")) {
       const item = menu.find((entry) => entry.id === target.dataset.toggleSold);
-      if (item) item.available = !item.available;
-      save(STORAGE.menu, menu);
-      renderMenu();
-      renderAdmin();
+      if (!item) return;
+      try {
+        const { error } = await supabaseClient.from("menu_items")
+          .update({ available: !item.available }).eq("id", item.id);
+        if (error) throw error;
+        await loadSharedMenu();
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to update item"));
+      }
     } else if (target.matches("[data-delete-menu]")) {
       const item = menu.find((entry) => entry.id === target.dataset.deleteMenu);
       if (item && window.confirm(`Remove ${item.name} from the menu?`)) {
-        menu = menu.filter((entry) => entry.id !== item.id);
-        delete cart[item.id];
-        save(STORAGE.menu, menu);
-        save(STORAGE.cart, cart);
-        renderMenu();
-        updateCartIndicators();
-        renderAdmin();
+        try {
+          const { error } = await supabaseClient.from("menu_items").delete().eq("id", item.id);
+          if (error) throw error;
+          menu = menu.filter((entry) => entry.id !== item.id);
+          delete cart[item.id];
+          save(STORAGE.cart, cart);
+          renderMenu();
+          updateCartIndicators();
+          renderAdmin();
+        } catch (error) {
+          alert(backendError(error, "Unable to delete item"));
+        }
       }
     } else if (target.id === "cancel-edit") {
       adminEditId = "";
@@ -417,9 +588,12 @@
     renderAreas();
     updateCartIndicators();
   });
-  document.querySelector("#track-form").addEventListener("submit", (event) => {
+  document.querySelector("#track-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    renderTrack(document.querySelector("#track-number").value);
+    await renderTrack(
+      document.querySelector("#track-number").value,
+      document.querySelector("#track-phone").value,
+    );
   });
   document.querySelector("#checkout-content").addEventListener("change", (event) => {
     if (event.target.name) checkoutDraft[event.target.name] = event.target.value;
@@ -440,7 +614,7 @@
     const selectedZone = document.querySelector('#checkout-form [name="zone"]')?.value;
     document.querySelector('#checkout-form [type="submit"]').textContent = `Place order · ${money(checkoutTotalValue(selectedZone))}`;
   });
-  document.querySelector("#checkout-content").addEventListener("submit", (event) => {
+  document.querySelector("#checkout-content").addEventListener("submit", async (event) => {
     if (event.target.id !== "checkout-form") return;
     event.preventDefault();
     const form = event.target;
@@ -450,7 +624,47 @@
     const fee = checkoutType === "Delivery" ? deliveryFee(zone) : 0;
     const subtotal = cartSubtotal();
     const discount = discountAmount();
-    const order = {
+    let order;
+    const submitButton = form.querySelector('[type="submit"]');
+    const errorBox = document.querySelector("#checkout-error");
+    errorBox.textContent = "";
+    submitButton.disabled = true;
+    submitButton.textContent = "Sending order…";
+    try {
+      if (isRemoteOrderMode()) {
+        const { data: remoteOrder, error } = await supabaseClient.functions.invoke("place-order", {
+          body: {
+            name: String(data.get("name")).trim(),
+            phone: phoneDigits(data.get("phone")),
+            orderType: checkoutType,
+            zone: checkoutType === "Delivery" ? zone : null,
+            address: checkoutType === "Delivery" ? String(data.get("address")).trim() : null,
+            paymentMethod: String(data.get("payment")),
+            notes: String(data.get("notes") || "").trim(),
+            promoCode: promoApplied ? "LETSEAT10" : "",
+            items: getCartLines().map(({ item, quantity }) => ({ id: item.id, quantity })),
+          },
+        });
+        if (error) throw error;
+        order = {
+          id: remoteOrder.orderNumber,
+          name: remoteOrder.name,
+          phone: remoteOrder.phone,
+          type: remoteOrder.orderType,
+          zone: remoteOrder.zone || "",
+          address: remoteOrder.address || "",
+          payment: remoteOrder.paymentMethod,
+          notes: remoteOrder.notes || "",
+          items: remoteOrder.items.map((item) => ({ id: item.id, name: item.name, price: Number(item.price), quantity: item.quantity })),
+          subtotal: Number(remoteOrder.subtotal),
+          discount: Number(remoteOrder.discount),
+          deliveryFee: Number(remoteOrder.deliveryFee),
+          total: Number(remoteOrder.total),
+          currency,
+          status: remoteOrder.status,
+        };
+      } else {
+        order = {
       id: `LE-${String(Date.now()).slice(-6)}`,
       createdAt: new Date().toISOString(),
       name: String(data.get("name")).trim(),
@@ -467,9 +681,16 @@
       total: Math.max(0, subtotal - discount + fee),
       currency,
       status: "Received",
-    };
-    orders.push(order);
-    save(STORAGE.orders, orders);
+        };
+        orders.push(order);
+        save(STORAGE.orders, orders);
+      }
+    } catch (error) {
+      errorBox.textContent = backendError(error, "Unable to place order");
+      submitButton.disabled = false;
+      submitButton.textContent = `Place order · ${money(checkoutTotalValue(zone))}`;
+      return;
+    }
     cart = {};
     promoApplied = false;
     checkoutDraft = {};
@@ -478,15 +699,28 @@
     document.querySelector("#checkout-dialog").close();
     showOrder(order);
   });
-  document.querySelector("#admin-content").addEventListener("submit", (event) => {
+  document.querySelector("#admin-content").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (event.target.id === "admin-login") {
-      const password = new FormData(event.target).get("password");
-      if (password === CONFIG.adminPassword) {
-        adminAuthenticated = true;
+      const form = event.target;
+      const data = new FormData(form);
+      const button = form.querySelector('[type="submit"]');
+      const errorNode = document.querySelector("#admin-error");
+      errorNode.textContent = "";
+      button.disabled = true;
+      try {
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email: String(data.get("email")).trim(),
+          password: String(data.get("password")),
+        });
+        if (error) throw error;
+        if (!(await requireAdmin())) throw new Error("Unable to verify administrator access.");
+        await loadSharedMenu();
+        await loadDeliveryZones();
         renderAdmin();
-      } else {
-        document.querySelector("#admin-error").textContent = "That password isn’t right.";
+      } catch (error) {
+        errorNode.textContent = backendError(error, "Admin sign-in failed");
+        button.disabled = false;
       }
     } else if (event.target.id === "admin-menu-form") {
       const data = new FormData(event.target);
@@ -503,19 +737,27 @@
         alert("Enter a price greater than zero.");
         return;
       }
-      menu = previous ? menu.map((entry) => entry.id === id ? item : entry) : [...menu, item];
-      adminEditId = "";
-      save(STORAGE.menu, menu);
-      renderMenu();
-      renderAdmin();
+      try {
+        const { error } = await supabaseClient.from("menu_items").upsert(toDbMenu(item));
+        if (error) throw error;
+        adminEditId = "";
+        await loadSharedMenu();
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to save menu item"));
+      }
     }
   });
-  document.querySelector("#admin-content").addEventListener("change", (event) => {
+  document.querySelector("#admin-content").addEventListener("change", async (event) => {
     if (event.target.matches("[data-order-status]")) {
-      const order = orders.find((entry) => entry.id === event.target.dataset.orderStatus);
-      if (order) {
-        order.status = event.target.value;
-        save(STORAGE.orders, orders);
+      try {
+        const { error } = await supabaseClient.from("orders")
+          .update({ status: event.target.value }).eq("order_number", event.target.dataset.orderStatus);
+        if (error) throw error;
+        await loadAdminOrders();
+        renderAdmin();
+      } catch (error) {
+        alert(backendError(error, "Unable to update order status"));
       }
     }
   });

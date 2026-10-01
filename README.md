@@ -1,46 +1,66 @@
 # Lets Eat
 
-A responsive, no-build storefront for a Monrovia-area takeaway and delivery shop. The site is plain HTML, CSS, and JavaScript, so it can be previewed locally and hosted as a static site.
+Responsive food-shop storefront for Monrovia and Brewerville. The front end is plain HTML, CSS, and JavaScript; GitHub Pages hosts the static files. Supabase provides the shared menu, administrator sign-in, protected order data, checkout, and order tracking.
 
-## Run it locally
+## Supabase setup
 
-1. Open `index.html` in a modern browser, or serve the folder with any static web server. For example, from this folder run `python -m http.server 8000` and visit `http://localhost:8000`.
-2. Browse the menu, add items to the cart, and submit a test checkout. Orders, menu edits, and tracking statuses persist in that browser's local storage.
-3. Open **Admin** in the footer. The demo password is `letseat2026`.
+Create a Supabase project, then:
 
-No package install or build step is required.
+1. In **Project Settings → API**, copy the **Project URL** and the **publishable key** (or legacy `anon` key). These are public browser settings; the anon key is not an admin credential.
+2. Open `app.js` and set `CONFIG.supabaseUrl` and `CONFIG.supabaseAnonKey`. Do not add a service-role key or an administrator password here.
+3. Open **SQL Editor** in Supabase, paste and run [`supabase/schema.sql`](./supabase/schema.sql). It creates the sample menu, delivery zones, admin-only RLS policies, order tables, and the server-only `place_order` database function.
+4. In **Authentication → Users**, create the owner’s email/password account. In **Authentication → Settings**, disable public sign-ups; create future admin accounts from the dashboard.
+   Choose a strong, unique password in Supabase. If you choose `Ricky2006`, enter it only in Supabase Auth; never put it in the repository. A longer, randomly generated password is safer.
+5. In SQL Editor, authorize the owner account (replace the email with its Supabase Auth email):
 
-## Before you publish
+   ```sql
+   insert into public.admin_users (user_id)
+   select id
+   from auth.users
+   where lower(email) = lower('owner@example.com')
+   on conflict (user_id) do nothing;
+   ```
 
-Edit the `CONFIG` object near the top of `app.js`:
+6. Configure Edge Function secrets in **Project Settings → Edge Functions → Secrets**. Supabase normally provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to functions. If they are not present in your project, set them there. Use the same public key configured in `app.js` for `SUPABASE_ANON_KEY`. The service-role key is secret: keep it only in Supabase function secrets, never in the website, GitHub, or chat.
+7. Install/use the Supabase CLI and authenticate locally (the CLI opens its own sign-in flow; do not paste credentials into chat). From the project folder, link the project and deploy both functions:
 
-- `phoneDisplay`: the phone number shown on the site.
-- `phoneDigits`: the WhatsApp number in international format, digits only (for example, `231XXXXXXXXX`; do not include `+`). This configures order and contact message links.
-- `email`, `address`, and `hours`: your real business details.
-- `socials`: your Instagram, Facebook, and TikTok profile URLs (HTTPS URLs are shown in the footer).
-- `lrdPerUsd`: the USD-to-LRD display conversion rate. This is a manually maintained estimate, not a live exchange rate.
-- `mobileMoney.orange` and `mobileMoney.mtn`: the wallet numbers and payment instructions customers see at checkout.
-- `adminPassword`: the demo password. Changing it does not make the static site's admin secure.
+   ```powershell
+   npx supabase login
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   npx supabase functions deploy place-order
+   npx supabase functions deploy track-order
+   ```
 
-The delivery zones and fees are in the `ZONES` array in `app.js`. Menu items, daily offer copy, currency styling, and initial sample prices are also in `app.js`. The first visit seeds the menu into local storage; after that, the local admin dashboard can add, edit, remove, and mark items sold out.
+   Find `YOUR_PROJECT_REF` in the Supabase project URL (`https://YOUR_PROJECT_REF.supabase.co`). The functions deliberately disable platform JWT verification and validate the public API key themselves; checkout calls a database function available only to the service role.
+8. Add the deployed website URL in **Authentication → URL Configuration → Redirect URLs**:
 
-Sample menu photography uses optimized, remotely hosted Unsplash images. Replace the `photo` URLs in `INITIAL_MENU` with your own compressed, HTTPS food photos when available. Customer reviews on the page are clearly marked as samples and should be replaced with real, permissioned reviews before launch.
+   ```text
+   https://rickyageorge7-create.github.io/-lets-eat/**
+   ```
 
-## Free static hosting
+9. Commit and push the updated `app.js`, then enable/update GitHub Pages as described below. The public menu and delivery zones load from Supabase. Admin sign-in uses Supabase Auth; RLS permits menu/order management only for the user listed in `admin_users`. Checkout totals and menu availability are recalculated in PostgreSQL. Tracking requires both the random order number and the phone number used at checkout.
 
-Deploy the folder as a static site on Netlify, Vercel, or GitHub Pages:
+### Security notes
 
-1. Upload or push the project files (including `index.html`, `style.css`, and `app.js`) to your chosen static host.
-2. Set the publish/root directory to this folder. There is no build command; the output directory is the project root.
-3. Set the deployed site's home page to `index.html`, then open the HTTPS URL and test menu search, currency toggle, checkout, and WhatsApp links on a phone.
+- There is no admin password in the website code. The customer's Auth password is sent directly to Supabase Auth over HTTPS and is not stored by this app.
+- The frontend URL and publishable/anon key are public by design. **Never** use or publish a service-role/secret key in `app.js`; the Edge Functions use it server-side.
+- Row-level security prevents public clients from reading customer orders. Public order placement and tracking go through Edge Functions; tracking returns only status after matching the order number and phone.
+- This is a starter integration. Before taking real orders, add abuse protection/rate limiting or CAPTCHA for public checkout, configure operational order notifications, and test the payment instructions. Orange Money and MTN MoMo remain manual instructions, not payment processing.
 
-## Important production limitations
+## Run locally
 
-This is a working **single-browser demo**, not a production ordering backend:
+With Supabase configured, serve the project directory over HTTP (for example, `python -m http.server 8000`) and visit `http://localhost:8000`. Without Supabase values, the site shows sample menu data and local demo checkout; admin is disabled and local demo orders do not sync or track across browsers.
 
-- The dashboard password is present in the public JavaScript. Anyone can inspect or change it. Orders and menu edits are stored only in the browser that created them; they are not shared with the owner or other customers, and clearing browser data removes them.
-- Order placement saves a local confirmation but does not silently notify the shop. The customer must tap **Send order on WhatsApp** to open a pre-filled message. Add the real WhatsApp number to `CONFIG.phoneDigits`.
-- Orange Money and MTN MoMo are instruction-only options; this site does not initiate or verify payments. Add your actual wallet instructions before accepting orders.
-- For a real public launch, connect a protected backend or a configured service such as Supabase/Firebase for shared menu, orders, tracking, and admin authentication. Keep admin credentials and payment secrets on the server, require HTTPS, validate prices and delivery fees server-side, and configure order notifications there. Do not use local storage as the authoritative order record.
+## Shop and menu settings
 
-The optional customer-account feature is not included; it requires the same shared, authenticated backend.
+The `CONFIG` object at the top of `app.js` contains the business phone/WhatsApp number, email, pickup address, hours, USD/LRD display rate, payment instructions, social links, and public Supabase configuration. The `zones` in `supabase/schema.sql` define shared delivery areas and fees. After signing into Admin, manage menu names, categories, prices, photo URLs, availability, and order statuses from the dashboard.
+
+Replace sample reviews and remote Unsplash photography with real, permissioned shop content before launch. Keep menu photo URLs on HTTPS and compressed for mobile.
+
+## Publish on GitHub Pages
+
+This project is plain HTML/CSS/JS; it has no package install or build step. In the GitHub repository, open **Settings → Pages → Build and deployment**, set **Source** to **Deploy from a branch**, choose **main** and **/(root)**, then click **Save**. The site URL is:
+
+<https://rickyageorge7-create.github.io/-lets-eat/>
+
+After each change, commit and push the static files to `main`. Supabase SQL changes and Edge Function deployments are managed separately from GitHub Pages.
