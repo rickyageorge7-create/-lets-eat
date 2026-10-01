@@ -107,6 +107,7 @@ input,select,textarea{min-width:0;padding:.73rem .85rem;border:1px solid #e5e2da
 .site-footer{min-height:105px;padding:1.5rem 6vw;display:flex;align-items:center;justify-content:space-between;gap:1.4rem;background:var(--ink);color:white}
 .brand-footer{font-size:1rem}.brand-footer .brand-mark{width:34px;height:34px}
 .site-footer>span{color:#c4c4bc;font-size:.68rem}.site-footer>div{display:flex;gap:1rem;align-items:center;font-size:.71rem}
+.creator-credit{gap:.55rem!important;color:#c4c4bc;font-size:.68rem!important}.creator-credit img{width:36px;height:36px;border:1px solid #ffffff44;border-radius:50%;object-fit:cover}.creator-credit b{color:white}
 .social-links{display:flex;gap:.65rem;font-size:.68rem}.social-links:empty{display:none}
 .site-footer button{padding:0;border:0;background:none;color:#c4c4bc;font-size:.71rem;cursor:pointer}
 .site-footer>small{color:#a8aaa2;font-size:.63rem}
@@ -147,7 +148,7 @@ dialog::backdrop{background:#1717139c;backdrop-filter:blur(3px)}
 .contact-band{padding:3rem 1.25rem;grid-template-columns:1fr;gap:1.4rem}.contact-details{width:100%}.contact-details p{font-size:.78rem}.contact-form{width:100%}
 .faq-section{padding-block:3.1rem;grid-template-columns:1fr;gap:1rem}.faq-list summary{font-size:.79rem}.faq-list details p{font-size:.74rem}
 .track-section{padding:2.8rem 1rem;align-items:flex-start;flex-direction:column;gap:1rem}.track-section h2{font-size:2rem}.track-form{width:100%}.track-row .button{font-size:.68rem}
-.site-footer{padding:1.3rem 1rem 5.4rem;display:grid;grid-template-columns:1fr auto;gap:.8rem}.site-footer>span{grid-column:1/-1;grid-row:2}.site-footer>div{grid-column:1/-1;grid-row:3}.site-footer>small{grid-column:2;grid-row:1;text-align:right}
+.site-footer{padding:1.3rem 1rem 5.4rem;display:grid;grid-template-columns:1fr auto;gap:.8rem}.site-footer>span{grid-column:1/-1;grid-row:2}.site-footer>div{grid-column:1/-1;grid-row:3}.site-footer>small{grid-column:2;grid-row:1;text-align:right}.site-footer>.creator-credit{grid-column:1/-1;grid-row:4}
 .whatsapp-float{right:12px;bottom:82px;width:45px;height:45px;padding:0;justify-content:center}.whatsapp-float b{display:none}.whatsapp-float span{font-size:1.35rem}
 .mobile-cart-bar:not([hidden]){display:block;position:fixed;z-index:9;left:0;right:0;bottom:0;padding:.65rem 1rem calc(.65rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #eeeae3}
 .mobile-cart-bar button{width:100%;min-height:45px;padding:.65rem 1rem;display:flex;align-items:center;justify-content:space-between;border:0;border-radius:999px;background:var(--orange);color:white;font-size:.77rem;cursor:pointer}

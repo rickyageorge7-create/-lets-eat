@@ -1,10 +1,10 @@
-# Lets Eat
+# Let's Eat oo
 
 Responsive food-shop storefront for Monrovia and Brewerville. The front end is plain HTML, CSS, and JavaScript; GitHub Pages hosts the static files. Supabase provides the shared menu, administrator sign-in, protected order data, checkout, and order tracking.
 
 ## Supabase setup
 
-The existing Lets Eat project URL and public publishable key are configured in `app.js`. The tables and policies have been installed in the Supabase project. Re-run the checked-in schema after updates to install the latest database functions:
+The existing Let's Eat oo project URL and public publishable key are configured in `app.js`. The tables and policies have been installed in the Supabase project. Re-run the checked-in schema after updates to install the latest database functions:
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](./supabase/schema.sql), and click **Run**. It sets up sample menu and delivery zones, row-level security, and server-calculated order/tracking RPCs. Re-running it preserves existing menu items and orders while updating policies and the order functions.
 2. In **Authentication → Users**, create the owner’s email/password account if needed. A database password is not an Auth user password. In **Authentication → Settings**, disable public sign-ups.
@@ -40,7 +40,7 @@ With Supabase configured, serve the project directory over HTTP (for example, `p
 
 ## Shop and menu settings
 
-The `CONFIG` object at the top of `app.js` contains the business phone/WhatsApp number, email, pickup address, hours, USD/LRD display rate, payment instructions, social links, and public Supabase configuration. The `zones` in `supabase/schema.sql` define shared delivery areas and fees. After signing into Admin, manage menu names, categories, prices, photo URLs, availability, and order statuses from the dashboard.
+The `CONFIG` object at the top of `app.js` contains the shop name, order WhatsApp number (`phoneDisplay` / `phoneDigits`), separate customer-care call number (`customerCarePhoneDisplay` / `customerCarePhoneDigits`), email, pickup city, hours, USD/LRD display rate, payment instructions, social links, and public Supabase configuration. Phone digits for `wa.me` and `tel:` links use Liberia's country code `231` without the local leading zero. The shop currently uses `0775399168` for WhatsApp orders and `0555112722` for customer-care calls. Its pickup point is in Monrovia; contact the shop for directions. The creator portrait is `img/ricky.jpg`. The `zones` in `supabase/schema.sql` define shared delivery areas and fees. After signing into Admin, manage menu names, categories, prices, photo URLs, availability, and order statuses from the dashboard.
 
 Replace sample reviews and remote Unsplash photography with real, permissioned shop content before launch. Keep menu photo URLs on HTTPS and compressed for mobile.
 

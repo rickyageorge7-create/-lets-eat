@@ -4,11 +4,13 @@
   // The Supabase URL and publishable/anon key are public client configuration.
   // Never put a service-role key or admin password in this file.
   const CONFIG = {
-    shopName: "Lets Eat",
-    phoneDisplay: "[YOUR PHONE NUMBER]",
-    phoneDigits: "",
-    email: "[YOUR EMAIL]",
-    address: "[YOUR PICKUP LOCATION], Monrovia, Liberia",
+    shopName: "Let's Eat oo",
+    phoneDisplay: "0775399168",
+    phoneDigits: "231775399168",
+    customerCarePhoneDisplay: "0555112722",
+    customerCarePhoneDigits: "231555112722",
+    email: "rickyageorge7@gmail.com",
+    address: "Monrovia, Liberia",
     hours: "Daily, 8:00 AM – 10:00 PM",
     lrdPerUsd: 190,
     supabaseUrl: "https://ltrjgjwwypgsglztdggt.supabase.co",
@@ -127,7 +129,7 @@
     if (error) throw error;
     if (!allowed) {
       await supabaseClient.auth.signOut();
-      throw new Error("This Supabase account is not authorized as a Lets Eat administrator.");
+      throw new Error(`This Supabase account is not authorized as a ${CONFIG.shopName} administrator.`);
     }
     adminUser = sessionData.session.user;
     return true;
@@ -278,7 +280,7 @@
   function showOrder(order) {
     const lines = order.items.map((line) => `<p>${line.quantity} × ${escapeHtml(line.name)} <span style="float:right">${moneyFor(line.price * line.quantity, order.currency)}</span></p>`).join("");
     const message = [
-      `Hi Lets Eat! I'd like to confirm order ${order.id}.`,
+      `Hi ${CONFIG.shopName}! I'd like to confirm order ${order.id}.`,
       ...order.items.map((line) => `${line.quantity} x ${line.name} — ${moneyFor(line.price * line.quantity, order.currency)}`),
       `Subtotal: ${moneyFor(order.subtotal, order.currency)}`,
       `Discount: ${moneyFor(order.discount, order.currency)}`,
@@ -293,7 +295,7 @@
     const waTarget = CONFIG.phoneDigits ? `https://wa.me/${encodeURIComponent(CONFIG.phoneDigits)}` : "https://wa.me/";
     const waUrl = `${waTarget}?text=${encodeURIComponent(message)}`;
     document.querySelector("#confirmation-content").innerHTML = `
-      <div class="confirmation"><div class="confirmation-mark">✓</div><p class="eyebrow">THANKS FOR YOUR ORDER</p><h2 id="confirmation-title">You're all set, ${escapeHtml(order.name)}!</h2><p>We’ve saved your order. Send the details to Lets Eat on WhatsApp so we can confirm it.</p><div class="order-number">${escapeHtml(order.id)}</div><div class="confirmation-summary">${lines}<p>Order status: <b>${escapeHtml(order.status)}</b></p><p>Total: <b>${moneyFor(order.total, order.currency)}</b></p></div><a class="button button-orange" href="${waUrl}" target="_blank" rel="noreferrer">Send order on WhatsApp ↗</a><p style="margin-top:1rem"><a class="text-link" href="#track" id="confirmation-track">Track this order →</a></p><p class="admin-warning">${CONFIG.phoneDigits ? "" : "Set CONFIG.phoneDigits in app.js to send directly to your shop WhatsApp. Until then WhatsApp opens with the order message ready; choose the shop contact."}</p></div>`;
+      <div class="confirmation"><div class="confirmation-mark">✓</div><p class="eyebrow">THANKS FOR YOUR ORDER</p><h2 id="confirmation-title">You're all set, ${escapeHtml(order.name)}!</h2><p>We’ve saved your order. Send the details to ${escapeHtml(CONFIG.shopName)} on WhatsApp so we can confirm it.</p><div class="order-number">${escapeHtml(order.id)}</div><div class="confirmation-summary">${lines}<p>Order status: <b>${escapeHtml(order.status)}</b></p><p>Total: <b>${moneyFor(order.total, order.currency)}</b></p></div><a class="button button-orange" href="${waUrl}" target="_blank" rel="noreferrer">Send order on WhatsApp ↗</a><p style="margin-top:1rem"><a class="text-link" href="#track" id="confirmation-track">Track this order →</a></p><p class="admin-warning">${CONFIG.phoneDigits ? "" : "Set CONFIG.phoneDigits in app.js to send directly to your shop WhatsApp. Until then WhatsApp opens with the order message ready; choose the shop contact."}</p></div>`;
     document.querySelector("#confirmation-dialog").showModal();
     document.querySelector("#confirmation-track").addEventListener("click", () => {
       document.querySelector("#confirmation-dialog").close();
@@ -306,7 +308,7 @@
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       const message = [
-        `Hello Lets Eat, my name is ${String(data.get("name")).trim()}.`,
+        `Hello ${CONFIG.shopName}, my name is ${String(data.get("name")).trim()}.`,
         `Please reply to me at: ${String(data.get("replyTo")).trim()}`,
         String(data.get("message")).trim(),
       ].join("\n");
@@ -433,13 +435,16 @@
   }
 
   function whatsappContact() {
-    const text = encodeURIComponent("Hi Lets Eat! I'd like to ask about your menu.");
+    const text = encodeURIComponent(`Hi ${CONFIG.shopName}! I'd like to ask about your menu.`);
     window.open(`${CONFIG.phoneDigits ? `https://wa.me/${encodeURIComponent(CONFIG.phoneDigits)}` : "https://wa.me/"}?text=${text}`, "_blank", "noopener,noreferrer");
   }
 
   document.querySelector("#year").textContent = new Date().getFullYear();
-  document.querySelector("#contact-phone").textContent = `Call us: ${CONFIG.phoneDisplay}`;
-  if (CONFIG.phoneDigits) document.querySelector("#contact-phone").href = `tel:+${CONFIG.phoneDigits}`;
+  document.querySelector("#contact-phone").textContent = `Customer care: ${CONFIG.customerCarePhoneDisplay}`;
+  if (CONFIG.customerCarePhoneDigits) document.querySelector("#contact-phone").href = `tel:+${CONFIG.customerCarePhoneDigits}`;
+  const contactWhatsapp = document.querySelector("#contact-whatsapp");
+  contactWhatsapp.textContent = `WhatsApp orders: ${CONFIG.phoneDisplay}`;
+  if (CONFIG.phoneDigits) contactWhatsapp.href = `https://wa.me/${encodeURIComponent(CONFIG.phoneDigits)}`;
   document.querySelector("#contact-email").textContent = `Email: ${CONFIG.email}`;
   if (CONFIG.email && !CONFIG.email.startsWith("[")) document.querySelector("#contact-email").href = `mailto:${CONFIG.email}`;
   document.querySelector("#shop-hours").textContent = `Hours: ${CONFIG.hours}`;
@@ -457,7 +462,7 @@
   } else if (!supabaseClient) {
     setBackendNotice("Supabase could not load. Check the connection and Supabase setup.", true);
   } else {
-    setBackendNotice("Connecting to the shared Lets Eat menu and ordering service…");
+    setBackendNotice(`Connecting to the shared ${CONFIG.shopName} menu and ordering service…`);
     Promise.all([loadSharedMenu(), loadDeliveryZones()])
       .then(() => setBackendNotice(""))
       .catch((error) => setBackendNotice(backendError(error, "Unable to load Supabase data"), true));
@@ -467,7 +472,7 @@
     const image = event.target;
     if (!(image instanceof HTMLImageElement) || image.dataset.fallback) return;
     image.dataset.fallback = "true";
-    image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%23fff5e9'/%3E%3Ctext x='50%25' y='48%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='74' font-weight='700' fill='%23f3492d'%3ELets Eat%3C/text%3E%3Ctext x='50%25' y='63%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='24' fill='%23797b76'%3EFresh food, good mood%3C/text%3E%3C/svg%3E";
+    image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%23fff5e9'/%3E%3Ctext x='50%25' y='48%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='74' font-weight='700' fill='%23f3492d'%3ELet%27s Eat oo%3C/text%3E%3Ctext x='50%25' y='63%25' text-anchor='middle' dominant-baseline='middle' font-family='Arial,sans-serif' font-size='24' fill='%23797b76'%3EFresh food, good mood%3C/text%3E%3C/svg%3E";
   }, true);
 
   document.addEventListener("click", async (event) => {
